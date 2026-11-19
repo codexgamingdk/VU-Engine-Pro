@@ -1,0 +1,14 @@
+__pycache__/
+*.py[cod]
+dist/
+*.log
+.env
+
+# Local audit evidence, superseded drafts and pre-remediation artwork
+/docs/Release-audit.md
+/docs/MIT-draft.txt
+/docs/THIRD_PARTY_NOTICES-draft.md
+/screenshots/control-states.png
+/screenshots/themes.png
+/screenshots/mute-offline.png
+/screenshots/clean-layout.png

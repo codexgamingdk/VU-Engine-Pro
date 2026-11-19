@@ -1,0 +1,6 @@
+VU Engine Pro includes the synchronous client modules from websockets 16.0.
+Copyright (c) Aymeric Augustin and contributors
+License: BSD-3-Clause
+Official repository: https://github.com/python-websockets/websockets
+The original notice, conditions and disclaimer are in
+vendor/websockets-16.0.dist-info/licenses/LICENSE inside the plugin.

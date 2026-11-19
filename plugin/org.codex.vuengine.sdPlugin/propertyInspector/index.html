@@ -1,0 +1,227 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>PipeWire VU Engine Pro</title>
+  <style>
+    :root { color-scheme: light dark; font: 13px sans-serif; }
+    body { margin: 0; padding: 10px; }
+    label { display: block; margin: 0 0 8px; }
+    select, input, button { box-sizing: border-box; width: 100%; margin-top: 4px; }
+    input[type=checkbox] { width: auto; }
+    .row { display: grid; grid-template-columns: 1fr auto; gap: 6px; }
+    .row button { width: auto; margin-top: 4px; }
+    .group { padding: 8px; margin: 8px 0; border: 1px solid #64748b66; border-radius: 6px; }
+    .hint { opacity: .72; margin: 6px 0 0; font-size: 11px; }
+    #status { min-height: 1.3em; color: #60a5fa; }
+    [hidden] { display: none !important; }
+  body {background:#11151d;color:#edf2f8;font:14px system-ui;max-width:42rem;margin:auto}
+    fieldset.group {background:#191f29;padding:12px;border-color:#354155}
+    legend {font-weight:650;color:#91beff}
+    select,input:not([type=checkbox]),button {padding:5px;border-radius:4px}
+    #grant,#runtime {color:#e2bd89} button:disabled {opacity:.55}
+  body {background:#121826;color:#fff} fieldset.group {min-width:0;background:#191E27} select {min-width:0} .row {grid-template-columns:minmax(0,1fr) auto} .hint {color:#94A3B8;opacity:1}
+    #approve {background:#4298FF;color:#081423} #revoke {background:#191E27;color:#FF8796;border:1px solid #FF586D} button:disabled {opacity:.4} .preview {display:grid;justify-items:center;gap:8px;color:#94A3B8}.preview img {width:min(136px,100%);height:auto}
+    #grant[data-state=approved]{color:#30D58C} #grant[data-state=pending]{color:#FFBD70} #grant[data-state=offline]{color:#94A3B8} #reply[data-error=true]{color:#FF586D}
+    </style>
+</head>
+<body>
+  <fieldset class="group"><legend>Audio Meter Source</legend><label>Source or sink monitor
+    <div class="row"><select id="node"><option value="">Scanning PipeWire…</option></select><button id="refresh" type="button">Refresh</button></div>
+  </label>
+
+
+  <p id="status" aria-live="polite"></p></fieldset>
+  <fieldset class="group"><legend>Volume Control Target</legend>
+    <label>Local audio channel
+      <select id="controlTarget"><option value="">No control target</option></select>
+    </label>
+    <p class="hint">Approval remembers this key and its control settings on this computer. Reapprove after an audio server restart or device replacement. Metering works without approval.</p>
+    <p id="grant"></p><button type="button" id="approve">Approve volume control</button><button type="button" id="revoke">Revoke approval</button><p id="reply" aria-live="polite"></p></fieldset><fieldset class="group"><legend>Control Action</legend><label>Action on button press
+      <select id="controlAction">
+        <option value="none">None — meter only</option>
+        <option value="volume_up">Volume Up</option>
+        <option value="volume_down">Volume Down</option>
+        <option value="mute_toggle">Mute Toggle</option>
+        <option value="set_volume">Set Volume</option>
+        <option value="reset_volume">Reset Volume</option>
+      </select>
+    </label>
+    <div id="stepGroup" hidden>
+      <label><input type="checkbox" id="unmute_on_volume_change"> Unmute on Volume Change</label>
+      <p class="hint" id="nativeStepHint" hidden>Use PipeWire Audio's volume step (1–20 percentage points). A muted target unmutes first, including at 0% and 100%.</p>
+      <label>Volume step
+        <select id="stepMode"><option value="preset">Preset step</option><option value="custom">Custom step</option></select>
+      </label>
+      <label id="presetGroup">Step size
+        <select id="volumeStep"><option value="1">1 percentage point</option><option value="2">2 percentage points</option><option value="5">5 percentage points</option><option value="10">10 percentage points</option></select>
+      </label>
+      <label id="customGroup" hidden>Custom step (%)
+        <input id="customStep" type="number" min="1" max="100" step="1" value="5">
+      </label>
+    </div>
+    <label id="setGroup" hidden>Set volume (%)
+      <input id="targetVolume" type="number" min="0" max="100" step="1" value="50">
+    </label>
+    <label id="resetGroup" hidden>Reset volume (%)
+      <input id="resetVolume" type="number" min="0" max="100" step="1" value="100">
+    </label>
+  </fieldset>
+
+  <fieldset class="group">
+    <legend>Appearance</legend>
+    <div class="preview"><strong>LIVE PREVIEW</strong><img id="preview" width="96" height="96" alt="Live key preview"></div>
+    <label>Custom label <input id="label" maxlength="24" placeholder="Use source name"></label>
+    <label>Theme <select id="theme"><option value="personal">Personal · Blue</option><option value="stream">Stream · Purple</option><option value="master">Master · Orange</option><option value="neutral">Neutral · Grey</option><option value="custom">Custom</option></select></label>
+    <label id="colorGroup">Custom accent color <input type="color" id="custom_color" value="#4298ff"></label>
+    <label>Layout <select id="layout"><option value="balanced">Balanced</option><option value="meter_focus">Meter Focus</option><option value="minimal">Minimal</option></select></label>
+    <label>Meter style <select id="meter_style"><option value="segmented">Segmented</option><option value="continuous">Continuous</option></select></label>
+    <label><input type="checkbox" id="show_vu"> Show VU meter</label>
+    <label><input type="checkbox" id="show_percentage"> Show volume percentage</label>
+    <label><input type="checkbox" id="show_peak"> Show peak indicator</label>
+    <label><input type="checkbox" id="show_status"> Show status indicator</label>
+    <label><input type="checkbox" id="show_icon"> Show control icon</label>
+  </fieldset>
+  <p id="runtime" aria-live="polite"></p>
+  <p class="hint">Button controls change only the selected target, use 0–100% bounds, and are inactive when the target cannot be verified.</p>
+  <script>
+    let ws, context, settings = {}, nodes = [], controlTargets = [];
+    const $ = id => document.getElementById(id);
+    const flags = ['show_vu','show_percentage','show_peak','show_status','show_icon'];
+    let previewVisible = false;
+    new IntersectionObserver(entries => { previewVisible = entries[0].isIntersecting; }).observe($('preview'));
+    function connectElgatoStreamDeckSocket(port, uuid, registerEvent, info, actionInfo) {
+      const action = JSON.parse(actionInfo);
+      context = action.context;
+      settings = action.payload?.settings || {};
+      ws = new WebSocket(`ws://127.0.0.1:${port}`);
+      ws.onopen = () => {
+        ws.send(JSON.stringify({event: registerEvent, uuid}));
+        requestNodes();
+        const timer = setInterval(requestNodes, 2000);
+        const previewTimer = setInterval(() => {
+          if (previewVisible && !document.hidden && ws.readyState === WebSocket.OPEN)
+            ws.send(JSON.stringify({event:'sendToPlugin', action:'org.codex.vuengine.level', context, payload:{request:'preview'}}));
+        }, 500);
+        ws.addEventListener("close", () => { clearInterval(timer); clearInterval(previewTimer); }, {once:true});
+      };
+      ws.onmessage = ev => {
+        const msg = JSON.parse(ev.data);
+        if (msg.event === 'sendToPropertyInspector' && msg.payload?.request === 'preview') {
+          const image = msg.payload.image;
+          if (typeof image === 'string' && image.startsWith('data:image/svg+xml;base64,') && $('preview').src !== image) $('preview').src = image;
+          return;
+        }
+        if (msg.event === 'sendToPropertyInspector' && msg.payload?.request === 'nodes') {
+          $('runtime').textContent = msg.payload.runtime || '';
+          const fresh = msg.payload.nodes || [];
+          const targets = msg.payload.control_targets || [];
+          if (JSON.stringify([nodes, controlTargets]) === JSON.stringify([fresh, targets])) return;
+          nodes = fresh;
+          controlTargets = msg.payload.control_targets || [];
+          renderNodes();
+        } else if (msg.event === 'sendToPropertyInspector' && msg.payload?.request === 'permission') {
+          $('reply').dataset.error = msg.payload.message !== 'Permission updated';
+          $('reply').textContent = msg.payload.message;
+          requestNodes();
+        } else if (msg.event === 'didReceiveSettings') {
+          settings = msg.payload?.settings || {};
+          render();
+        }
+      };
+      render();
+    }
+    function requestNodes() {
+      if (!ws || ws.readyState !== WebSocket.OPEN) return;
+      ws.send(JSON.stringify({event: 'sendToPlugin', action: 'org.codex.vuengine.level', context, payload: {request: 'nodes'}}));
+    }
+    function save() {
+      if (!ws || ws.readyState !== WebSocket.OPEN) return;
+      ws.send(JSON.stringify({event: 'setSettings', context, payload: settings}));
+    }
+    function fill(select, list, selected, title, desc) {
+      select.replaceChildren(new Option(title, ''));
+      for (const node of list) {
+        const text = `${node.description || node.node_name} — ${desc(node)}`;
+        select.add(new Option(text, node.node_name));
+      }
+      if (selected && !list.some(n => n.node_name === selected)) {
+        select.add(new Option(`${selected} (unavailable or protected)`, selected));
+      }
+      select.value = selected || '';
+    }
+    function renderNodes() {
+      fill($('node'), nodes, settings.node_name, nodes.length ? 'Choose a PipeWire node' : 'No PipeWire nodes found', n => (n.virtual ? 'Virtual ' : '') + (n.media_class === 'Audio/Sink' ? 'output monitor' : 'audio source'));
+      fill($('controlTarget'), controlTargets, settings.control_target, 'No control target', n => n.node_name);
+      showAvailability();
+    }
+    function render() {
+      renderNodes();
+      const source = settings.node_name || '';
+      $('theme').value = settings.theme || (source.endsWith('-personal') ? 'personal' : source.endsWith('-stream') ? 'stream' : 'neutral');
+      $('custom_color').value = settings.custom_color || '#4298ff';
+      $('colorGroup').hidden = $('theme').value !== 'custom';
+      $('layout').value = settings.layout || 'balanced';
+      $('meter_style').value = settings.meter_style || 'segmented';
+      for (const key of flags) $(key).checked = settings[key] !== false;
+      $('show_icon').disabled = $('show_status').disabled = $('layout').value === 'minimal';
+      $('show_peak').disabled = $('meter_style').disabled = !$('show_vu').checked;
+      $('label').value = settings.label || '';
+      $('controlAction').value = settings.control_action || 'none';
+      $('stepMode').value = settings.step_mode || 'preset';
+      $('volumeStep').value = String(settings.volume_step || 5);
+      $('customStep').value = settings.custom_step ?? 5;
+      $('targetVolume').value = settings.target_volume ?? 50;
+      $('resetVolume').value = settings.reset_volume ?? 100;
+      const action = $('controlAction').value;
+      const isStep = action === 'volume_up' || action === 'volume_down';
+      $('stepGroup').hidden = !isStep;
+      $('unmute_on_volume_change').checked = settings.unmute_on_volume_change === true;
+      $('nativeStepHint').hidden = !isStep || !$('unmute_on_volume_change').checked;
+      $('setGroup').hidden = action !== 'set_volume';
+      $('resetGroup').hidden = action !== 'reset_volume';
+      const custom = $('stepMode').value === 'custom';
+      $('presetGroup').hidden = !isStep || custom;
+      $('customGroup').hidden = !isStep || !custom;
+    }
+    function showAvailability() {
+      const target = controlTargets.find(n => n.node_name === settings.control_target);
+      $('approve').disabled = !target || target.approved;
+      $('revoke').disabled = !target?.approved;
+      $('grant').dataset.state = target ? target.approved ? 'approved' : 'pending' : 'offline';
+      $('grant').textContent = target ? (target.approved ? 'Locally approved' : 'Approval required') + ' · Online · Virtual stereo sink' : settings.control_target ? 'Offline or ineligible · Writes disabled' : 'No target selected · Read only';
+      const selected = nodes.find(n => n.node_name === settings.node_name);
+      $('status').textContent = settings.node_name ? (selected ? ('Online · Metering available · ' + (controlTargets.some(n => n.node_name === selected.node_name) ? 'Control eligible' : 'Read only') + ' · ' + selected.node_name) : 'Meter source unavailable; it will reconnect when it returns.') : 'Choose a source to activate the meter.';
+    }
+    for (const key of ['theme','custom_color','layout','meter_style',...flags]) {
+      $(key).addEventListener('change', () => {
+        settings[key] = flags.includes(key) ? $(key).checked : $(key).value;
+        render(); save();
+      });
+    }
+    $('node').addEventListener('change', () => { settings.node_name = $('node').value; render(); save(); });
+    $('controlTarget').addEventListener('change', () => { settings.control_target = $('controlTarget').value; $('reply').textContent=''; render(); save(); requestNodes(); });
+    $('label').addEventListener('change', () => { settings.label = $('label').value.trim(); save(); });
+    $('controlAction').addEventListener('change', () => { settings.control_action = $('controlAction').value; render(); save(); });
+    $('stepMode').addEventListener('change', () => { settings.step_mode = $('stepMode').value; render(); save(); });
+    $('volumeStep').addEventListener('change', () => { settings.volume_step = Number($('volumeStep').value); save(); });
+    $('unmute_on_volume_change').addEventListener('change', () => {
+      settings.unmute_on_volume_change = $('unmute_on_volume_change').checked;
+      render(); save();
+    });
+    $('customStep').addEventListener('change', () => { settings.custom_step = Math.max(1, Math.min(100, Math.round(Number($('customStep').value) || 5))); render(); save(); });
+    $('targetVolume').addEventListener('change', () => { settings.target_volume = Math.max(0, Math.min(100, Number($('targetVolume').value) || 0)); render(); save(); });
+    $('resetVolume').addEventListener('change', () => { settings.reset_volume = Math.max(0, Math.min(100, Number($('resetVolume').value) || 0)); render(); save(); });
+    for (const request of ['approve','revoke']) {
+      $(request).onclick = event => {
+        const target = controlTargets.find(n => n.node_name === settings.control_target);
+        if (!event.isTrusted || !target || ws?.readyState !== WebSocket.OPEN) return;
+        const {node_name,id,cookie,serial} = target;
+        ws.send(JSON.stringify({event:'sendToPlugin', action:'org.codex.vuengine.level', context,
+          payload:{request,identity:{node_name,id,cookie,serial}}}));
+      };
+    }
+    $('refresh').addEventListener('click', requestNodes);
+  </script>
+</body>
+</html>

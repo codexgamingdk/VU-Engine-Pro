@@ -1,0 +1,22 @@
+{
+  "Name": "VU Engine Pro",
+  "Description": "Community Edition · Live PipeWire meters and locally approved audio controls",
+  "Author": "CodeX",
+  "Version": "2.4.0",
+  "SDKVersion": 2,
+  "CodePaths": { "x86_64-unknown-linux-gnu": "meter.py" },
+  "CodePathLin": "meter.py",
+  "Icon": "icons/plugin",
+  "Category": "Audio Meter",
+  "OS": [{ "Platform": "linux" }],
+  "Actions": [{
+    "UUID": "org.codex.vuengine.level",
+    "Name": "PipeWire VU Meter",
+    "Tooltip": "Read RMS and peak levels from an existing PipeWire source or sink monitor",
+    "Icon": "icons/plugin",
+    "States": [{ "Image": "icons/plugin" }],
+    "Controllers": ["Keypad"],
+    "SupportedInMultiActions": false,
+    "PropertyInspectorPath": "propertyInspector/index.html"
+  }]
+}

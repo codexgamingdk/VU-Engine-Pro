@@ -1,0 +1,21 @@
+name: Offline validation
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  package:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - run: sudo apt-get update && sudo apt-get install -y lua5.4
+      - run: python3 -B -m unittest discover -s tests && lua5.4 tests/bound_proxy.lua
+      - run: |
+          python3 scripts/package.py
+          cp dist/*.zip build-one.zip
+          python3 scripts/package.py
+          cmp build-one.zip dist/*.zip
+          (cd dist && sha256sum -c *.zip.sha256)
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: linux-review-bundle
+          path: dist/

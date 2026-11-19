@@ -1,0 +1,74 @@
+{
+  "infobars": [],
+  "keys": [
+    {
+      "action": {
+        "controllers": [
+          "Keypad"
+        ],
+        "disable_automatic_states": true,
+        "encoder": null,
+        "icon": "plugins/org.codex.vuengine.sdPlugin/icons/plugin.svg",
+        "name": "PipeWire VU Meter",
+        "plugin": "org.codex.vuengine.sdPlugin",
+        "property_inspector": "plugins/org.codex.vuengine.sdPlugin/propertyInspector/index.html",
+        "states": [
+          {
+            "alignment": "bottom",
+            "background_colour": "#101722",
+            "colour": "#F1F5F9",
+            "family": "Liberation Sans",
+            "image": "plugins/org.codex.vuengine.sdPlugin/icons/plugin.svg",
+            "image_override": null,
+            "image_scale": 100,
+            "name": "",
+            "show": true,
+            "size": 12,
+            "stroke_colour": "#101722",
+            "stroke_size": 1,
+            "style": "Regular",
+            "text": "",
+            "text_override": null,
+            "underline": false
+          }
+        ],
+        "supported_in_multi_actions": false,
+        "tooltip": "Read-only RMS and peak meter for a PipeWire source or sink monitor",
+        "uuid": "org.codex.vuengine.level",
+        "visible_in_action_list": true
+      },
+      "children": null,
+      "context": "Keypad.0.0",
+      "current_state": 0,
+      "settings": {
+        "node_name": "",
+        "control_target": "",
+        "control_action": "none",
+        "show_vu": true,
+        "show_percentage": false,
+        "theme": "neutral"
+      },
+      "states": [
+        {
+          "alignment": "bottom",
+          "background_colour": "#101722",
+          "colour": "#F1F5F9",
+          "family": "Liberation Sans",
+          "image": "plugins/org.codex.vuengine.sdPlugin/icons/plugin.svg",
+          "image_override": null,
+          "image_scale": 100,
+          "name": "",
+          "show": true,
+          "size": 12,
+          "stroke_colour": "#101722",
+          "stroke_size": 1,
+          "style": "Regular",
+          "text": "",
+          "text_override": null,
+          "underline": false
+        }
+      ]
+    }
+  ],
+  "sliders": []
+}
